@@ -1,10 +1,9 @@
 <h1 align="center">
-<img src="https://readme-typing-svg.herokuapp.com/?font=Righteous&size=35&center=true&vCenter=true&width=500&height=70&duration=4000&lines=Hi!+👋;+My+Name+Is+Eduardo!;" />
+<img src="https://readme-typing-svg.herokuapp.com/?font=Righteous&size=35&center=true&vCenter=true&width=500&height=70&duration=4000&lines=Hi!+👋;+My+Name+Is+Eduardo!;" alt="Typing animation"/>
 </h1>
 <div align="center">
   <a href="https://github.com/EduBeloDev">
-  <img height="160em" src="https://github-readme-stats.vercel.app/api?username=EduBeloDev&show_icons=true&theme=nord&include_all_commits=false&count_private=true"/>
-  <img height="160em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=EduBeloDev&layout=compact&langs_count=7&theme=nord"/>
+  </a>
 </div>
 <div align="center">
   
@@ -20,5 +19,3 @@
   <a href = "mailto:EMAIL"><img src="https://img.shields.io/badge/-Gmail-%23333?style=for-the-badge&logo=gmail&logoColor=white" target="_blank"></a>
   <a href="https://www.linkedin.com/in/LINKEDIN" target="_blank"><img src="https://img.shields.io/badge/-LinkedIn-%230077B5?style=for-the-badge&logo=linkedin&logoColor=white" target="_blank"></a> 
 </div>
-
-  ![snake gif](https://github.com/TechnologyHell/TechnologyHell/blob/output/github-snake-dark.svg)
