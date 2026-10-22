@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # cabeçalho com o Doodieman em LEDs, cidade 3D das contribuições
+      # cabeçalho com o personagem em LEDs, cidade 3D das contribuições
       # (inspirada no yoshi389111/github-profile-3d-contrib), linguagens e projetos
       - name: Gerar cards do perfil
         run: python3 scripts/profile_cards.py --user "${{ github.repository_owner }}" --out dist

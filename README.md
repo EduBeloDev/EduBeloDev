@@ -1,6 +1,6 @@
 <!-- Imagens geradas por .github/workflows/profile.yml e publicadas na branch "output" -->
 <div align="center">
-  <img width="100%" alt="Eduardo (@EduBeloDev): repositórios, estrelas, contribuições, seguidores e o Doodieman" src="https://raw.githubusercontent.com/EduBeloDev/EduBeloDev/output/profile-header.svg"/>
+  <img width="100%" alt="Eduardo (@EduBeloDev): repositórios, estrelas, contribuições, seguidores e o Ed em LEDs" src="https://raw.githubusercontent.com/EduBeloDev/EduBeloDev/output/profile-header.svg"/>
 </div>
 
 <div align="center">

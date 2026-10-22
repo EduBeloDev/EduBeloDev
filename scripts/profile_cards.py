@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gera os cards SVG do perfil (cabeçalho com o Doodieman, cidade 3D, linguagens e projetos).
+"""Gera os cards SVG do perfil (cabeçalho com o personagem em LEDs, cidade 3D, linguagens e projetos).
 
 Usa só a biblioteca padrão. No GitHub Actions lê os dados pela API GraphQL
 com o GITHUB_TOKEN; localmente dá para testar com --sample.
@@ -29,7 +29,10 @@ TEXT = "#e6edf3"
 MUTED = "#8b9bb4"
 
 SUBTITLE = "Desenvolvedor em constante evolução"
-LED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "doodieman-led.txt")
+# personagem em LEDs do cabeçalho (matriz gerada por make_led.py) e a fala dele
+CHARACTER = "ed"
+SPEECH = "IT'S COFRE TIME!"
+LED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", f"{CHARACTER}-led.txt")
 
 QUERY = """
 query($login: String!) {
@@ -251,7 +254,7 @@ def stars_field(width, height, count, seed, avoid=None):
     return "\n".join(out)
 
 
-# ---------------------------------------------------------------- Doodieman
+# ---------------------------------------------------------------- personagem
 
 def load_led(path=LED_FILE):
     """Lê a matriz gerada por make_led.py: '# letra cor' e depois as linhas."""
@@ -268,8 +271,8 @@ def load_led(path=LED_FILE):
     return palette, rows
 
 
-def led_doodieman(x0, y0, pitch, uid="dm"):
-    """Doodieman como painel de LEDs: um ponto colorido por célula, com brilho e onda de luz."""
+def led_character(x0, y0, pitch, uid="dm"):
+    """Personagem como painel de LEDs: um ponto colorido por célula, com brilho e onda de luz."""
     palette, rows = load_led()
     cols = max(len(r) for r in rows)
     w, h = cols * pitch, len(rows) * pitch
@@ -286,7 +289,7 @@ def led_doodieman(x0, y0, pitch, uid="dm"):
             lines.append(f'<g class="led" style="animation-delay:{y * .045:.2f}s">{dots}</g>')
 
     # alguns LEDs que piscam em branco, como numa tela de verdade
-    lit = [(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch in "RS"]
+    lit = [(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch not in ".K"]
     sparks = "".join(
         f'<circle class="spark" style="animation-delay:{rnd.uniform(0, 5):.2f}s" '
         f'cx="{(x + .5) * pitch:.1f}" cy="{(y + .5) * pitch:.1f}" r="{r * 1.2:.2f}" fill="#ffffff"/>'
@@ -331,8 +334,8 @@ LED_CSS = """
 """
 
 
-def render_doodieman():
-    svg, w, h = led_doodieman(20, 20, 5)
+def render_character():
+    svg, w, h = led_character(20, 20, 5)
     return svg_doc(int(w + 40), int(h + 40), svg, LED_CSS)
 
 
@@ -388,15 +391,16 @@ def render_header(d):
         parts.append(svg)
         x += w + 8
 
-    # Doodieman em LEDs à direita, com o balão de fala
-    pitch = 3.7
-    led, w, h = led_doodieman(0, 0, pitch)
-    parts.append(f'<g class="dm-float"><g transform="translate({W - 30 - w:.1f} {(H - h) / 2:.1f})">{led}</g></g>')
+    # personagem em LEDs à direita, com o balão de fala
+    pitch = min(3.9, 280 / len(load_led()[1]))
+    led, w, h = led_character(0, 0, pitch)
+    left = W - 30 - w
+    parts.append(f'<g class="dm-float"><g transform="translate({left:.1f} {(H - h) / 2:.1f})">{led}</g></g>')
     parts.append(
-        f'<g class="dm-bubble" transform="translate(440 62)">'
+        f'<g class="dm-bubble" transform="translate({left - 160:.1f} 62)">'
         f'<rect width="150" height="30" rx="8" fill="{TEXT}"/>'
         f'<path d="M149 9l14 8-14 5z" fill="{TEXT}"/>'
-        f'<text x="75" y="20" font-size="11.5" font-weight="700" fill="#b3141c" text-anchor="middle">IT\'S DOODIE TIME!</text>'
+        f'<text x="75" y="20" font-size="11.5" font-weight="700" fill="#3f5a1a" text-anchor="middle">{escape(SPEECH)}</text>'
         f'</g>'
     )
     glow = """<defs><filter id="name-glow" x="-10%" y="-30%" width="120%" height="160%">
@@ -592,7 +596,7 @@ def main():
         "profile-city.svg": render_city(data),
         "profile-languages.svg": render_languages(data),
         "profile-projects.svg": render_projects(data),
-        "doodieman.svg": render_doodieman(),
+        f"{CHARACTER}.svg": render_character(),
     }
     for name, content in files.items():
         with open(os.path.join(args.out, name), "w", encoding="utf-8") as fh:
