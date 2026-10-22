@@ -31,7 +31,7 @@ MUTED = "#8b9bb4"
 SUBTITLE = "Desenvolvedor em constante evolução"
 # personagem em LEDs do cabeçalho (matriz gerada por make_led.py) e a fala dele
 CHARACTER = "ed"
-SPEECH = "IT'S COFRE TIME!"
+SPEECH = "IT'S COFFEE TIME!"
 LED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", f"{CHARACTER}-led.txt")
 
 QUERY = """
