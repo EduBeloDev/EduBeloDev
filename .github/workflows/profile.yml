@@ -1,9 +1,9 @@
 name: Gerar imagens do perfil
 
 on:
-  # atualiza automaticamente a cada 12 horas
+  # atualiza automaticamente a cada 4 horas
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */4 * * *"
 
   # permite rodar manualmente pela aba Actions
   workflow_dispatch:

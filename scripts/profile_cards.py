@@ -425,7 +425,8 @@ def render_city(d):
     # posição de cada dia: coluna = semana (começando no domingo), linha = dia da semana
     first = date.fromisoformat(days[0][0]) if days else date.today()
     offset = (first.weekday() + 1) % 7
-    cells = [((offset + i) // 7, (offset + i) % 7, c) for i, (_, c) in enumerate(days)]
+    cells = [((offset + i) // 7, (offset + i) % 7, c, day) for i, (day, c) in enumerate(days)]
+    today = days[-1] if days else (date.today().isoformat(), 0)
 
     ux, uy, vx, vy = 7.0, -2.2, 8.0, 4.0      # vetores da semana e do dia
     ox, oy = 380, 248
@@ -439,13 +440,21 @@ def render_city(d):
     def pt(x, y):
         return f"{x:.1f},{y:.1f}"
 
-    blocks = []
+    def label(day, c):
+        dia = date.fromisoformat(day).strftime("%d/%m/%Y")
+        return f"<title>{c} contribuiç{'ão' if c == 1 else 'ões'} em {dia}</title>"
+
+    blocks, beacon = [], ""
     # desenha de trás para a frente (de cima para baixo na tela)
-    for w, dd, c in sorted(cells, key=lambda t: t[0] * uy + t[1] * vy):
+    for w, dd, c, day in sorted(cells, key=lambda t: t[0] * uy + t[1] * vy):
         ax, ay = ox + w * ux + dd * vx, oy + w * uy + dd * vy
         A, B, C, D = (ax, ay), (ax + ux, ay + uy), (ax + ux + vx, ay + uy + vy), (ax + vx, ay + vy)
+        is_today = day == today[0]
         if not c:
-            blocks.append(f'<polygon points="{" ".join(pt(*p) for p in (A, B, C, D))}" fill="#0f2a33" stroke="#1b4650" stroke-width=".5"/>')
+            # hoje sem contribuições: o lote fica piscando, esperando um prédio
+            cls = ' class="lot-today"' if is_today else ''
+            blocks.append(f'<polygon{cls} points="{" ".join(pt(*p) for p in (A, B, C, D))}" fill="#0f2a33" '
+                          f'stroke="#1b4650" stroke-width=".5">{label(day, c)}</polygon>')
             continue
         level = min(3, int(4 * c / (peak + 1)))
         h = 5 + 88 * (c / peak) ** .6
@@ -454,11 +463,16 @@ def render_city(d):
         left = " ".join(pt(*p) for p in (A, D, up(D), up(A)))
         right = " ".join(pt(*p) for p in (D, C, up(C), up(D)))
         blocks.append(
-            f'<g class="bld" style="animation-delay:{w * .03:.2f}s">'
+            f'<g class="bld{" bld-today" if is_today else ""}" style="animation-delay:{w * .03:.2f}s">{label(day, c)}'
             f'<polygon points="{left}" fill="{shade(tops[level], .62)}"/>'
             f'<polygon points="{right}" fill="{shade(tops[level], .42)}"/>'
             f'<polygon points="{top}" fill="{tops[level]}" stroke="#bafff2" stroke-opacity=".35" stroke-width=".5"/></g>'
         )
+        if is_today:
+            # farol de luz em cima do prédio de hoje
+            bx, by = (A[0] + C[0]) / 2, (A[1] + C[1]) / 2 - h
+            beacon = (f'<g class="beacon"><rect x="{bx - 1.5:.1f}" y="{by - 44:.1f}" width="3" height="44" '
+                      f'fill="url(#beam)"/><circle cx="{bx:.1f}" cy="{by:.1f}" r="3.5" fill="#ffffff"/></g>')
 
     parts = [
         stars_field(W, H, 30, "city", avoid=(300, 20, 850, 290)),
@@ -469,10 +483,25 @@ def render_city(d):
         f'<text x="32" y="188" font-size="14" fill="{TEXT}">{active} dias ativos</text>',
         f'<text x="32" y="212" font-size="14" fill="{TEXT}">Dia mais ativo: {busiest}</text>',
         f'<text x="32" y="236" font-size="14" fill="{TEXT}">Maior sequência: {streak} dias</text>',
-        f'<g>{"".join(blocks)}</g>',
+        f'<circle class="pulse" cx="38" cy="262" r="4" fill="{MINT}"/>'
+        f'<text x="50" y="267" font-size="13" fill="{MINT}">Hoje: {today[1]} contribuiç{"ão" if today[1] == 1 else "ões"}</text>',
+        '<defs><linearGradient id="beam" x1="0" y1="1" x2="0" y2="0">'
+        f'<stop offset="0" stop-color="{MINT}" stop-opacity=".9"/><stop offset="1" stop-color="{MINT}" stop-opacity="0"/>'
+        '</linearGradient></defs>',
+        f'<g class="city">{"".join(blocks)}</g>{beacon}',
     ]
-    css = ("  .bld { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 1.4s ease-out backwards; }\n"
-           "  @keyframes rise { from { transform: scaleY(0); } }\n")
+    css = """  .bld { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 1.4s ease-out backwards; }
+  @keyframes rise { from { transform: scaleY(0); } }
+  .bld-today polygon:last-child { animation: today 1.6s ease-in-out infinite; }
+  @keyframes today { 50% { fill: #ffffff; } }
+  .lot-today { animation: lot 1.6s ease-in-out infinite; }
+  @keyframes lot { 50% { fill: #5eead4; stroke: #ffffff; } }
+  .beacon, .pulse { animation: beacon 1.6s ease-in-out infinite; }
+  @keyframes beacon { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  /* ao abrir o SVG direto no navegador: passe o mouse para ver cada dia */
+  .city .bld:hover polygon { fill: #ffffff; }
+  .city polygon:hover { fill: #5eead4; }
+"""
     return svg_doc(W, H, "\n".join(parts), css)
 
 
