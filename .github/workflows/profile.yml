@@ -28,7 +28,9 @@ jobs:
       - name: Gerar cards do perfil
         run: python3 scripts/profile_cards.py --user "${{ github.repository_owner }}" --out dist
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PROFILE_TOKEN (token pessoal com leitura dos repositórios) inclui os
+          # repositórios e contribuições privadas; sem ele, só dados públicos
+          GITHUB_TOKEN: ${{ secrets.PROFILE_TOKEN || secrets.GITHUB_TOKEN }}
 
       # publica tudo na branch "output", usada pelo README
       - name: Publicar na branch output

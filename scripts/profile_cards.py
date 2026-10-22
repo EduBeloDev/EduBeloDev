@@ -32,6 +32,10 @@ SUBTITLE = "Desenvolvedor em constante evolução"
 # personagem em LEDs do cabeçalho (matriz gerada por make_led.py) e a fala dele
 CHARACTER = "ed"
 SPEECH = "IT'S COFFEE TIME!"
+# repositórios privados entram nas estatísticas, linguagens e contribuições,
+# mas só aparecem pelo nome no card de projetos se estiverem nesta lista
+PRIVATE_PROJECTS_ALLOWED = []
+
 LED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", f"{CHARACTER}-led.txt")
 
 QUERY = """
@@ -46,10 +50,11 @@ query($login: String!) {
         weeks { contributionDays { date contributionCount } }
       }
     }
-    repositories(first: 100, ownerAffiliations: OWNER, privacy: PUBLIC,
+    repositories(first: 100, ownerAffiliations: [OWNER, COLLABORATOR],
                  orderBy: {field: PUSHED_AT, direction: DESC}) {
-      totalCount
       nodes {
+        owner { login }
+        isPrivate
         name
         description
         isFork
@@ -130,7 +135,15 @@ def fetch(login, token):
         raise SystemExit(f"Erro na API do GitHub: {payload['errors']}")
     user = payload["data"]["user"]
 
+    # com o GITHUB_TOKEN do Actions só os repositórios públicos aparecem;
+    # com um token pessoal (PROFILE_TOKEN) vêm também os privados
     repos = [r for r in user["repositories"]["nodes"] if not r["isFork"]]
+    owned = [r for r in repos if r["owner"]["login"].lower() == login.lower()]
+    private = sum(r["isPrivate"] for r in repos)
+    print(f"{len(repos)} repositórios encontrados ({private} privados)")
+    if not private:
+        print("Aviso: nenhum repositório privado visível. Configure o secret PROFILE_TOKEN "
+              "para incluir repositórios e contribuições privadas.")
 
     # linguagens ponderadas pelo tamanho do código em cada repositório
     sizes, colors = {}, {}
@@ -144,7 +157,9 @@ def fetch(login, token):
                  for n, s in sorted(sizes.items(), key=lambda kv: -kv[1])[:5]]
 
     # projetos em destaque: mais estrelas primeiro, depois os mais recentes
-    candidates = [r for r in repos if r["name"].lower() != login.lower()]
+    allowed = {name.lower() for name in PRIVATE_PROJECTS_ALLOWED}
+    candidates = [r for r in owned if r["name"].lower() != login.lower()
+                  and (not r["isPrivate"] or r["name"].lower() in allowed)]
     candidates.sort(key=lambda r: r["stargazerCount"], reverse=True)  # estável: mantém a ordem por push
     projects = []
     for repo in candidates[:2]:
@@ -174,8 +189,8 @@ def fetch(login, token):
         "followers": user["followers"]["totalCount"],
         "contributions": calendar["totalContributions"],
         "calendar": days,
-        "repo_count": user["repositories"]["totalCount"],
-        "stars": sum(r["stargazerCount"] for r in repos),
+        "repo_count": len(owned),
+        "stars": sum(r["stargazerCount"] for r in owned),
         "languages": languages,
         "projects": projects,
     }
