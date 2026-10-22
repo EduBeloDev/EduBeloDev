@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gera os cards SVG do perfil (cabeçalho com o Doodieman, linguagens e projetos).
+"""Gera os cards SVG do perfil (cabeçalho com o Doodieman, cidade 3D, linguagens e projetos).
 
 Usa só a biblioteca padrão. No GitHub Actions lê os dados pela API GraphQL
 com o GITHUB_TOKEN; localmente dá para testar com --sample.
@@ -14,7 +14,7 @@ import math
 import os
 import random
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from xml.sax.saxutils import escape
 
 MONO = "'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
@@ -29,6 +29,7 @@ TEXT = "#e6edf3"
 MUTED = "#8b9bb4"
 
 SUBTITLE = "Desenvolvedor em constante evolução"
+LED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "doodieman-led.txt")
 
 QUERY = """
 query($login: String!) {
@@ -36,7 +37,12 @@ query($login: String!) {
     login
     name
     followers { totalCount }
-    contributionsCollection { contributionCalendar { totalContributions } }
+    contributionsCollection {
+      contributionCalendar {
+        totalContributions
+        weeks { contributionDays { date contributionCount } }
+      }
+    }
     repositories(first: 100, ownerAffiliations: OWNER, privacy: PUBLIC,
                  orderBy: {field: PUSHED_AT, direction: DESC}) {
       totalCount
@@ -95,6 +101,17 @@ SAMPLE = {
 }
 
 
+def sample_calendar():
+    rnd = random.Random(7)
+    start = date(2025, 10, 26)
+    days = []
+    for i in range(52 * 7 + 4):
+        busy = rnd.random() < (0.25 if (start + timedelta(i)).weekday() >= 5 else 0.45)
+        count = int(rnd.expovariate(1 / 4)) + 1 if busy else 0
+        days.append(((start + timedelta(i)).isoformat(), min(count, 62)))
+    return days
+
+
 # ---------------------------------------------------------------- dados
 
 def fetch(login, token):
@@ -144,11 +161,16 @@ def fetch(login, token):
             "pushed": repo["pushedAt"],
         })
 
+    calendar = user["contributionsCollection"]["contributionCalendar"]
+    days = [(day["date"], day["contributionCount"])
+            for week in calendar["weeks"] for day in week["contributionDays"]]
+
     return {
         "login": user["login"],
         "name": user["name"] or user["login"],
         "followers": user["followers"]["totalCount"],
-        "contributions": user["contributionsCollection"]["contributionCalendar"]["totalContributions"],
+        "contributions": calendar["totalContributions"],
+        "calendar": days,
         "repo_count": user["repositories"]["totalCount"],
         "stars": sum(r["stargazerCount"] for r in repos),
         "languages": languages,
@@ -231,165 +253,87 @@ def stars_field(width, height, count, seed, avoid=None):
 
 # ---------------------------------------------------------------- Doodieman
 
-PX = 4
-GRID_W, GRID_H = 32, 34
-
-BROWN = {"K": "#2b1608", "L": "#c08a4d", "B": "#8b5a2b", "D": "#5c3a1a"}
-PALETTE = {
-    **BROWN,
-    "W": "#ffffff", "P": "#111111", "M": "#3a1208", "T": "#ff7a8a",
-    "Y": "#f5c542", "O": "#c98a12", "R": "#e5484d", "r": "#9f1f26", "C": "#38bdf8",
-    "S": "#ff9db0",
-}
-
-
-def _ellipse(grid, cx, cy, rx, ry):
-    inside = set()
-    for y in range(GRID_H):
-        for x in range(GRID_W):
-            if ((x + .5 - cx) / rx) ** 2 + ((y + .5 - cy) / ry) ** 2 <= 1:
-                inside.add((x, y))
-    for x, y in inside:
-        if any((x + dx, y + dy) not in inside for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-            grid[(x, y)] = "K"
-            continue
-        nx, ny = (x + .5 - cx) / rx, (y + .5 - cy) / ry
-        if ny < -.35 and nx < .15:
-            grid[(x, y)] = "L"
-        elif ny > .45 or nx > .6:
-            grid[(x, y)] = "D"
-        else:
-            grid[(x, y)] = "B"
+def load_led(path=LED_FILE):
+    """Lê a matriz gerada por make_led.py: '# letra cor' e depois as linhas."""
+    palette, rows = {}, []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            parts = line.split()
+            if line.startswith("#"):
+                if len(parts) == 3 and parts[2].startswith("#"):
+                    palette[parts[1]] = parts[2]
+            else:
+                rows.append(line)
+    return palette, rows
 
 
-def _paint(grid, rows, ox, oy):
-    for dy, row in enumerate(rows):
-        for dx, ch in enumerate(row):
-            if ch != ".":
-                grid[(ox + dx, oy + dy)] = ch
+def led_doodieman(x0, y0, pitch, uid="dm"):
+    """Doodieman como painel de LEDs: um ponto colorido por célula, com brilho e onda de luz."""
+    palette, rows = load_led()
+    cols = max(len(r) for r in rows)
+    w, h = cols * pitch, len(rows) * pitch
+    r = pitch * 0.36
+    rnd = random.Random(uid)
 
+    lines = []
+    for y, row in enumerate(rows):
+        dots = "".join(
+            f'<circle cx="{(x + .5) * pitch:.1f}" cy="{(y + .5) * pitch:.1f}" r="{r:.2f}" fill="{palette[ch]}"/>'
+            for x, ch in enumerate(row) if ch != "."
+        )
+        if dots:
+            lines.append(f'<g class="led" style="animation-delay:{y * .045:.2f}s">{dots}</g>')
 
-def _rects(grid):
-    """Junta pixels vizinhos da mesma cor em retângulos horizontais."""
-    out = []
-    for y in range(GRID_H):
-        x = 0
-        while x < GRID_W:
-            ch = grid.get((x, y))
-            if not ch:
-                x += 1
-                continue
-            start = x
-            while x < GRID_W and grid.get((x, y)) == ch:
-                x += 1
-            out.append(f'<rect x="{start * PX}" y="{y * PX}" width="{(x - start) * PX}" height="{PX}" fill="{PALETTE[ch]}"/>')
-    return "".join(out)
-
-
-def doodieman():
-    """Retorna (css, svg) do Doodieman em pixel art, num quadro de 128x136."""
-    cape, body, lids, stink = {}, {}, {}, {}
-
-    # capa de super-herói, atrás do corpo
-    for y in range(15, 32):
-        half = 9 + (y - 15) * 0.35
-        for x in range(GRID_W):
-            if abs(x + .5 - 16) <= half:
-                edge = abs(x + .5 - 16) > half - 1 or y == 31
-                cape[(x, y)] = "r" if edge else "R"
-    for x in range(GRID_W):
-        if (x // 2) % 2 and (x, 31) in cape:
-            del cape[(x, 31)]
-
-    # corpo em três camadas, de baixo para cima
-    _ellipse(body, 16, 24.5, 11.5, 5.5)
-    _ellipse(body, 16, 16.5, 8.5, 4.2)
-    _ellipse(body, 16, 10.2, 5.6, 3.2)
-
-    # coroa de rei do doodie
-    _paint(body, [
-        "Y...Y...Y",
-        "YY.YYY.YY",
-        "YYYYYYYYY",
-        "YRYYCYYRY",
-        "OOOOOOOOO",
-    ], 12, 2)
-
-    # sobrancelhas de herói e olhos grandes
-    _paint(body, [
-        "KKK.....KKK",
-        ".KKK...KKK.",
-        "KWWWK.KWWWK",
-        "KWWPK.KPWWK",
-        "KWWPK.KPWWK",
-        ".KKK...KKK.",
-    ], 10, 13)
-    _paint(lids, [
-        "BBB...BBB",
-        "BBB...BBB",
-        "KKK...KKK",
-    ], 11, 15)
-
-    # sorriso com língua e bochechas
-    _paint(body, [
-        "S.KKKKKKKKK.S",
-        "..KMMMMMMMK..",
-        "...KMTTTMK...",
-        "....KKKKK....",
-    ], 10, 22)
-
-    # braço erguido (punho de herói) e pezinhos
-    _paint(body, [
-        ".KK",
-        "KBBK",
-        "KBBK",
-        ".KBK",
-        ".KBK",
-        "KBK.",
-        "KBK.",
-    ], 26, 13)
-    _paint(body, [
-        "KKKK.......KKKK",
-        "KDDDK.....KDDDK",
-        ".KKKK.....KKKK.",
-    ], 8, 29)
-
-    # cheirinho subindo
-    for i, (x, y) in enumerate(((4, 4), (6, 1), (25, 2))):
-        for k in range(5):
-            stink[(x + (k % 2), y + k)] = "C"
-
-    css = """
-  .dm { animation: dm-bounce 1.4s ease-in-out infinite; }
-  @keyframes dm-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-  .dm-cape { transform-box: fill-box; transform-origin: 50% 0; animation: dm-cape 1.4s ease-in-out infinite; }
-  @keyframes dm-cape { 0%, 100% { transform: skewX(6deg); } 50% { transform: skewX(-6deg); } }
-  .dm-lids { opacity: 0; animation: dm-blink 4s steps(1) infinite; }
-  @keyframes dm-blink { 0%, 90% { opacity: 0; } 92%, 96% { opacity: 1; } 98% { opacity: 0; } }
-  .dm-stink { animation: dm-stink 2.2s ease-out infinite; }
-  @keyframes dm-stink { 0% { transform: translateY(6px); opacity: 0; } 30% { opacity: .9; } 100% { transform: translateY(-10px); opacity: 0; } }
-  .dm-bubble { transform-box: fill-box; transform-origin: 100% 100%; animation: dm-pop 4s ease-in-out infinite; }
-  @keyframes dm-pop { 0%, 8% { transform: scale(0); } 16%, 70% { transform: scale(1); } 80%, 100% { transform: scale(0); } }
-"""
-    svg = (
-        f'<g class="dm-stink" fill-opacity=".8">{_rects(stink)}</g>'
-        f'<g class="dm">'
-        f'<g class="dm-cape">{_rects(cape)}</g>'
-        f'<g shape-rendering="crispEdges">{_rects(body)}</g>'
-        f'<g class="dm-lids" shape-rendering="crispEdges">{_rects(lids)}</g>'
-        f'</g>'
+    # alguns LEDs que piscam em branco, como numa tela de verdade
+    lit = [(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch in "RS"]
+    sparks = "".join(
+        f'<circle class="spark" style="animation-delay:{rnd.uniform(0, 5):.2f}s" '
+        f'cx="{(x + .5) * pitch:.1f}" cy="{(y + .5) * pitch:.1f}" r="{r * 1.2:.2f}" fill="#ffffff"/>'
+        for x, y in rnd.sample(lit, min(14, len(lit)))
     )
-    return css, svg
+
+    defs = f"""<defs>
+  <pattern id="{uid}-grid" width="{pitch}" height="{pitch}" patternUnits="userSpaceOnUse">
+    <circle cx="{pitch / 2}" cy="{pitch / 2}" r="{r * .8:.2f}" fill="#24304f"/>
+  </pattern>
+  <radialGradient id="{uid}-vignette" cx=".5" cy=".45" r=".6">
+    <stop offset=".55" stop-color="#fff"/>
+    <stop offset="1" stop-color="#000"/>
+  </radialGradient>
+  <linearGradient id="{uid}-fade" x1="0" y1="0" x2="0" y2="1">
+    <stop offset=".8" stop-color="#fff"/>
+    <stop offset="1" stop-color="#000"/>
+  </linearGradient>
+  <mask id="{uid}-panel"><rect x="-{pitch * 6}" y="0" width="{w + pitch * 12}" height="{h}" fill="url(#{uid}-vignette)"/></mask>
+  <mask id="{uid}-bottom"><rect width="{w}" height="{h}" fill="url(#{uid}-fade)"/></mask>
+  <filter id="{uid}-glow" x="-10%" y="-10%" width="120%" height="120%">
+    <feGaussianBlur stdDeviation="{pitch * .45:.2f}" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>"""
+    svg = (f'<g transform="translate({x0:.1f} {y0:.1f})">{defs}'
+           f'<rect x="-{pitch * 6}" width="{w + pitch * 12}" height="{h}" fill="url(#{uid}-grid)" mask="url(#{uid}-panel)"/>'
+           f'<g mask="url(#{uid}-bottom)"><g filter="url(#{uid}-glow)">{"".join(lines)}</g>{sparks}</g>'
+           f'</g>')
+    return svg, w, h
+
+
+LED_CSS = """
+  .led { animation: led-wave 3.6s ease-in-out infinite; }
+  @keyframes led-wave { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  .spark { opacity: 0; animation: spark 5s ease-in-out infinite; }
+  @keyframes spark { 0%, 86%, 100% { opacity: 0; } 92% { opacity: .95; } }
+  .dm-float { animation: dm-float 3s ease-in-out infinite; }
+  @keyframes dm-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  .dm-bubble { transform-box: fill-box; transform-origin: 100% 50%; animation: dm-pop 5s ease-in-out infinite; }
+  @keyframes dm-pop { 0%, 8% { transform: scale(0); } 14%, 72% { transform: scale(1); } 80%, 100% { transform: scale(0); } }
+"""
 
 
 def render_doodieman():
-    css, svg = doodieman()
-    w, h = GRID_W * PX, GRID_H * PX
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w * 2}" height="{h * 2}" viewBox="0 0 {w} {h}" shape-rendering="crispEdges">
-<style>{css}</style>
-{svg}
-</svg>
-"""
+    svg, w, h = led_doodieman(20, 20, 5)
+    return svg_doc(int(w + 40), int(h + 40), svg, LED_CSS)
 
 
 # ---------------------------------------------------------------- cards
@@ -416,22 +360,13 @@ def chip(x, y, label, color):
 
 
 def render_header(d):
-    W, H = 860, 250
-    dm_css, dm_svg = doodieman()
-
-    parts = [stars_field(W, H, 46, d["login"], avoid=(24, 30, 420, 210))]
+    W, H = 860, 320
+    parts = [stars_field(W, H, 40, d["login"], avoid=(24, 24, 440, 310))]
+    parts.append(f'<path d="M22 22h10M27 17v10" stroke="{MINT}" stroke-width="1.2" class="twinkle"/>')
     parts.append(f'<text x="36" y="62" font-size="15" fill="{MINT}">@{escape(d["login"])}</text>')
-    parts.append(f'<text x="34" y="110" font-size="44" font-weight="700" fill="{TEXT}" '
+    parts.append(f'<text x="34" y="110" font-size="46" font-weight="700" fill="#f0fbff" filter="url(#name-glow)" '
                  f'style="font-family:{SANS}">{escape(d["name"])}</text>')
-    parts.append(f'<text x="36" y="142" font-size="14" fill="{MUTED}">{escape(SUBTITLE)}</text>')
-
-    x = 36
-    for name, color, _ in d["languages"][:4]:
-        svg, w = chip(x, 168, name, color)
-        if x + w > 410:
-            break
-        parts.append(svg)
-        x += w + 8
+    parts.append(f'<text x="36" y="140" font-size="14" fill="{MUTED}">{escape(SUBTITLE)}</text>')
 
     stats = [
         ("repo", d["repo_count"], "Repositórios"),
@@ -440,21 +375,105 @@ def render_header(d):
         ("people", d["followers"], "Seguidores"),
     ]
     for i, (ic, value, label) in enumerate(stats):
-        y = 64 + i * 36
-        parts.append(icon(ic, 440, y - 13))
-        parts.append(f'<text x="466" y="{y}" font-size="15" fill="{TEXT}">'
+        y = 180 + i * 27
+        parts.append(icon(ic, 36, y - 13))
+        parts.append(f'<text x="62" y="{y}" font-size="14" fill="{TEXT}">'
                      f'<tspan font-weight="700" fill="{MINT}">{value}</tspan>  {label}</text>')
 
-    # Doodieman com o balão de fala
+    x = 36
+    for name, color, _ in d["languages"][:4]:
+        svg, w = chip(x, 278, name, color)
+        if x + w > 470:
+            break
+        parts.append(svg)
+        x += w + 8
+
+    # Doodieman em LEDs à direita, com o balão de fala
+    pitch = 3.7
+    led, w, h = led_doodieman(0, 0, pitch)
+    parts.append(f'<g class="dm-float"><g transform="translate({W - 30 - w:.1f} {(H - h) / 2:.1f})">{led}</g></g>')
     parts.append(
-        f'<g transform="translate(676 58) scale(1.25)">{dm_svg}</g>'
-        f'<g class="dm-bubble" transform="translate(610 22)">'
+        f'<g class="dm-bubble" transform="translate(440 62)">'
         f'<rect width="150" height="30" rx="8" fill="{TEXT}"/>'
-        f'<path d="M126 29l12 12-2-12z" fill="{TEXT}"/>'
-        f'<text x="75" y="20" font-size="11.5" font-weight="700" fill="#2b1608" text-anchor="middle">IT\'S DOODIE TIME!</text>'
+        f'<path d="M149 9l14 8-14 5z" fill="{TEXT}"/>'
+        f'<text x="75" y="20" font-size="11.5" font-weight="700" fill="#b3141c" text-anchor="middle">IT\'S DOODIE TIME!</text>'
         f'</g>'
     )
-    return svg_doc(W, H, "\n".join(parts), dm_css)
+    glow = """<defs><filter id="name-glow" x="-10%" y="-30%" width="120%" height="160%">
+  <feGaussianBlur stdDeviation="3" result="b"/><feFlood flood-color="#5eead4" flood-opacity=".6"/>
+  <feComposite in2="b" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter></defs>"""
+    return svg_doc(W, H, glow + "\n".join(parts), LED_CSS)
+
+
+def city_stats(days):
+    counts = [c for _, c in days]
+    active = sum(1 for c in counts if c)
+    best = streak = 0
+    for c in counts:
+        streak = streak + 1 if c else 0
+        best = max(best, streak)
+    return active, max(counts, default=0), best
+
+
+def render_city(d):
+    """Cidade isométrica: cada dia vira um prédio com a altura das contribuições."""
+    W, H = 860, 300
+    days = d["calendar"][-53 * 7:]
+    active, busiest, streak = city_stats(days)
+
+    # posição de cada dia: coluna = semana (começando no domingo), linha = dia da semana
+    first = date.fromisoformat(days[0][0]) if days else date.today()
+    offset = (first.weekday() + 1) % 7
+    cells = [((offset + i) // 7, (offset + i) % 7, c) for i, (_, c) in enumerate(days)]
+
+    ux, uy, vx, vy = 7.0, -2.2, 8.0, 4.0      # vetores da semana e do dia
+    ox, oy = 380, 248
+    peak = max(busiest, 1)
+    tops = ["#1f7a6d", "#2bb39b", "#45d6bd", "#8af7e3"]
+
+    def shade(hex_color, k):
+        r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+        return f"#{int(r * k):02x}{int(g * k):02x}{int(b * k):02x}"
+
+    def pt(x, y):
+        return f"{x:.1f},{y:.1f}"
+
+    blocks = []
+    # desenha de trás para a frente (de cima para baixo na tela)
+    for w, dd, c in sorted(cells, key=lambda t: t[0] * uy + t[1] * vy):
+        ax, ay = ox + w * ux + dd * vx, oy + w * uy + dd * vy
+        A, B, C, D = (ax, ay), (ax + ux, ay + uy), (ax + ux + vx, ay + uy + vy), (ax + vx, ay + vy)
+        if not c:
+            blocks.append(f'<polygon points="{" ".join(pt(*p) for p in (A, B, C, D))}" fill="#0f2a33" stroke="#1b4650" stroke-width=".5"/>')
+            continue
+        level = min(3, int(4 * c / (peak + 1)))
+        h = 5 + 88 * (c / peak) ** .6
+        up = lambda p: (p[0], p[1] - h)
+        top = " ".join(pt(*up(p)) for p in (A, B, C, D))
+        left = " ".join(pt(*p) for p in (A, D, up(D), up(A)))
+        right = " ".join(pt(*p) for p in (D, C, up(C), up(D)))
+        blocks.append(
+            f'<g class="bld" style="animation-delay:{w * .03:.2f}s">'
+            f'<polygon points="{left}" fill="{shade(tops[level], .62)}"/>'
+            f'<polygon points="{right}" fill="{shade(tops[level], .42)}"/>'
+            f'<polygon points="{top}" fill="{tops[level]}" stroke="#bafff2" stroke-opacity=".35" stroke-width=".5"/></g>'
+        )
+
+    parts = [
+        stars_field(W, H, 30, "city", avoid=(300, 20, 850, 290)),
+        f'<text x="32" y="56" font-size="20" font-weight="700" fill="{TEXT}">A cidade que construí este ano</text>',
+        f'<text x="830" y="40" font-size="11" fill="{MINT}" text-anchor="end">visão 3D<tspan class="cursor">_</tspan></text>',
+        f'<text x="32" y="104" font-size="13" fill="{MINT}" letter-spacing="1">CONTRIBUIÇÕES</text>',
+        f'<text x="30" y="150" font-size="42" font-weight="700" fill="#f0fbff">{d["contributions"]}</text>',
+        f'<text x="32" y="188" font-size="14" fill="{TEXT}">{active} dias ativos</text>',
+        f'<text x="32" y="212" font-size="14" fill="{TEXT}">Dia mais ativo: {busiest}</text>',
+        f'<text x="32" y="236" font-size="14" fill="{TEXT}">Maior sequência: {streak} dias</text>',
+        f'<g>{"".join(blocks)}</g>',
+    ]
+    css = ("  .bld { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 1.4s ease-out backwards; }\n"
+           "  @keyframes rise { from { transform: scaleY(0); } }\n")
+    return svg_doc(W, H, "\n".join(parts), css)
 
 
 def render_languages(d):
@@ -531,7 +550,7 @@ def main():
     args = ap.parse_args()
 
     if args.sample:
-        data = SAMPLE
+        data = {**SAMPLE, "calendar": sample_calendar()}
     else:
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
@@ -541,6 +560,7 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     files = {
         "profile-header.svg": render_header(data),
+        "profile-city.svg": render_city(data),
         "profile-languages.svg": render_languages(data),
         "profile-projects.svg": render_projects(data),
         "doodieman.svg": render_doodieman(),

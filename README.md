@@ -3,10 +3,8 @@
   <img width="100%" alt="Eduardo (@EduBeloDev): repositórios, estrelas, contribuições, seguidores e o Doodieman" src="https://raw.githubusercontent.com/EduBeloDev/EduBeloDev/output/profile-header.svg"/>
 </div>
 
-<h3 align="center">🏙️ A cidade que construí este ano</h3>
-
 <div align="center">
-  <img width="100%" alt="Gráfico 3D das contribuições" src="https://raw.githubusercontent.com/EduBeloDev/EduBeloDev/output/profile-night-green.svg"/>
+  <img width="100%" alt="A cidade que construí este ano: contribuições em 3D" src="https://raw.githubusercontent.com/EduBeloDev/EduBeloDev/output/profile-city.svg"/>
 </div>
 
 <div align="center">

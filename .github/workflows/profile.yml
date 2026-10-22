@@ -23,21 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # cabeçalho com o Doodieman, stack de linguagens e projetos em destaque
+      # cabeçalho com o Doodieman em LEDs, cidade 3D das contribuições
+      # (inspirada no yoshi389111/github-profile-3d-contrib), linguagens e projetos
       - name: Gerar cards do perfil
         run: python3 scripts/profile_cards.py --user "${{ github.repository_owner }}" --out dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # "cidade" 3D das contribuições (yoshi389111/github-profile-3d-contrib)
-      - name: Gerar gráfico 3D das contribuições
-        uses: yoshi389111/github-profile-3d-contrib@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          USERNAME: ${{ github.repository_owner }}
-
-      - name: Copiar gráfico 3D para dist
-        run: cp profile-3d-contrib/*.svg dist/
 
       # gera a animação a partir do gráfico de contribuições (versão clara e escura)
       - name: Gerar SVGs da cobrinha
