@@ -392,17 +392,21 @@ def render_header(d):
         x += w + 8
 
     # personagem em LEDs à direita, com o balão de fala
-    pitch = min(3.9, 280 / len(load_led()[1]))
+    rows = load_led()[1]
+    pitch = min(3.9, 280 / len(rows))
     led, w, h = led_character(0, 0, pitch)
-    left = W - 30 - w
-    parts.append(f'<g class="dm-float"><g transform="translate({left:.1f} {(H - h) / 2:.1f})">{led}</g></g>')
-    parts.append(
-        f'<g class="dm-bubble" transform="translate({left - 160:.1f} 62)">'
-        f'<rect width="150" height="30" rx="8" fill="{TEXT}"/>'
-        f'<path d="M149 9l14 8-14 5z" fill="{TEXT}"/>'
-        f'<text x="75" y="20" font-size="11.5" font-weight="700" fill="#3f5a1a" text-anchor="middle">{escape(SPEECH)}</text>'
-        f'</g>'
-    )
+    left, top = W - 30 - w, (H - h) / 2
+
+    # a ponta do balão encosta no rosto, na altura da boca
+    row = int(len(rows) * .27)
+    col = len(rows[row]) - len(rows[row].lstrip("."))
+    tip_x, tip_y = left + col * pitch, top + (row + .5) * pitch
+    bubble = (f'<g class="dm-bubble" transform="translate({tip_x - 164:.1f} {tip_y - 15:.1f})">'
+              f'<rect width="150" height="30" rx="8" fill="{TEXT}"/>'
+              f'<path d="M149 9L164 15L149 21z" fill="{TEXT}"/>'
+              f'<text x="75" y="20" font-size="11.5" font-weight="700" fill="#3f5a1a" text-anchor="middle">{escape(SPEECH)}</text>'
+              f'</g>')
+    parts.append(f'<g class="dm-float"><g transform="translate({left:.1f} {top:.1f})">{led}</g>{bubble}</g>')
     glow = """<defs><filter id="name-glow" x="-10%" y="-30%" width="120%" height="160%">
   <feGaussianBlur stdDeviation="3" result="b"/><feFlood flood-color="#5eead4" flood-opacity=".6"/>
   <feComposite in2="b" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
