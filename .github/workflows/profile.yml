@@ -1,9 +1,9 @@
-name: Gerar cobrinha das contribuições
+name: Gerar imagens do perfil
 
 on:
-  # atualiza automaticamente a cada 12 horas
+  # atualiza automaticamente a cada 4 horas
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */4 * * *"
 
   # permite rodar manualmente pela aba Actions
   workflow_dispatch:
@@ -18,9 +18,18 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
+      - uses: actions/checkout@v5
+
+      # cabeçalho com o personagem em LEDs, cidade 3D das contribuições
+      # (inspirada no yoshi389111/github-profile-3d-contrib), linguagens e projetos
+      - name: Gerar cards do perfil
+        run: python3 scripts/profile_cards.py --user "${{ github.repository_owner }}" --out dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # gera a animação a partir do gráfico de contribuições (versão clara e escura)
       - name: Gerar SVGs da cobrinha
         uses: Platane/snk/svg-only@v3
@@ -30,7 +39,7 @@ jobs:
             dist/github-snake.svg
             dist/github-snake-dark.svg?palette=github-dark
 
-      # publica os SVGs na branch "output", usada pelo README
+      # publica tudo na branch "output", usada pelo README
       - name: Publicar na branch output
         uses: crazy-max/ghaction-github-pages@v5
         with:
