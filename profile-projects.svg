@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="250" viewBox="0 0 420 250">
+<style>
+  text { font-family: 'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .twinkle { animation: twinkle 3s ease-in-out infinite; }
+  @keyframes twinkle { 0%, 100% { opacity: .15; } 50% { opacity: .9; } }
+  .cursor { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+<defs>
+  <linearGradient id="border" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#5eead4"/>
+    <stop offset="1" stop-color="#3fb950"/>
+  </linearGradient>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0f1730"/>
+    <stop offset="1" stop-color="#0b1122"/>
+  </linearGradient>
+</defs>
+<rect x="1.5" y="1.5" width="417" height="247" rx="14" fill="url(#bg)" stroke="url(#border)" stroke-opacity=".7" stroke-width="1.5"/>
+<text x="24" y="38" font-size="13" fill="#e6edf3">Projects.list <tspan fill="#8b9bb4">./projetos.sh --all</tspan><tspan class="cursor" fill="#5eead4">_</tspan></text>
+<g transform="translate(18 56)"><rect width="188" height="176" rx="10" fill="#111a33" stroke="#2a3a63"/><circle cx="16" cy="22" r="4" fill="#3178c6"/><text x="26" y="26" font-size="12" font-weight="700" fill="#e6edf3">learning-tool</text><text x="14" y="52" font-size="10.5" fill="#8b9bb4">Sem descrição</text><text x="14" y="68" font-size="10.5" fill="#8b9bb4">(ainda).</text><circle cx="158" cy="62" r="17" fill="none" stroke="#1c2747" stroke-width="4"/><circle cx="158" cy="62" r="17" fill="none" stroke="#3178c6" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.6 106.8" transform="rotate(-90 158 62)"/><text x="158" y="66" font-size="10" font-weight="700" fill="#e6edf3" text-anchor="middle">82%</text><rect x="14" y="112" width="76.0" height="20" rx="6" fill="none" stroke="#3b5bdb" stroke-opacity=".8"/><text x="21" y="126" font-size="10" fill="#91a7ff">TypeScript</text><text x="14" y="158" font-size="10.5" fill="#8b9bb4"><tspan fill="#f5c542">★</tspan> 0   atualizado há 1d</text></g>
+<g transform="translate(214 56)"><rect width="188" height="176" rx="10" fill="#111a33" stroke="#2a3a63"/><circle cx="16" cy="22" r="4" fill="#3178c6"/><text x="26" y="26" font-size="12" font-weight="700" fill="#e6edf3">brand-studio</text><text x="14" y="52" font-size="10.5" fill="#8b9bb4">Estúdio local de</text><text x="14" y="68" font-size="10.5" fill="#8b9bb4">conteúdo de marca:</text><text x="14" y="84" font-size="10.5" fill="#8b9bb4">notas, quadros de…</text><circle cx="158" cy="62" r="17" fill="none" stroke="#1c2747" stroke-width="4"/><circle cx="158" cy="62" r="17" fill="none" stroke="#3178c6" stroke-width="4" stroke-linecap="round" stroke-dasharray="74.8 106.8" transform="rotate(-90 158 62)"/><text x="158" y="66" font-size="10" font-weight="700" fill="#e6edf3" text-anchor="middle">70%</text><rect x="14" y="112" width="63.6" height="20" rx="6" fill="none" stroke="#3b5bdb" stroke-opacity=".8"/><text x="21" y="126" font-size="10" fill="#91a7ff">carousel</text><rect x="83.6" y="112" width="82.2" height="20" rx="6" fill="none" stroke="#3b5bdb" stroke-opacity=".8"/><text x="90.6" y="126" font-size="10" fill="#91a7ff">claude-code</text><text x="14" y="158" font-size="10.5" fill="#8b9bb4"><tspan fill="#f5c542">★</tspan> 0   atualizado há 1d</text></g>
+</svg>
